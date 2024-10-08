@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Log Forensic Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      h1,
+      h2,
+      h3,
+      h4 {
+        color: #333;
+      }
+      #results {
+        margin-top: 20px;
+      }
+      #chartContainer {
+        max-width: 800px;
+        margin-top: 20px;
+      }
+      .section {
+        background-color: #f4f4f4;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+      }
+      ul {
+        padding-left: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Log Forensic Analysis</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" id="logFile" name="file" accept=".log" />
+      <button type="submit">Analyze</button>
+    </form>
+    <div id="results"></div>
+    <div id="chartContainer">
+      <canvas id="chart"></canvas>
+    </div>
+
+    <script>
+      document
+        .getElementById("uploadForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          const formData = new FormData(this);
+          fetch("/analyze", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.error) {
+                alert(data.error);
+                return;
+              }
+              displayResults(data);
+            })
+            .catch((error) => console.error("Error:", error));
+        });
+
+      function displayResults(data) {
+        const resultsDiv = document.getElementById("results");
+        resultsDiv.innerHTML = `
+                <h2>Analysis Results</h2>
+                <div class="section">
+                    <h3>Overview</h3>
+                    <p>Unique IP Addresses: ${data.unique_ips}</p>
+                    <h4>Top 5 IP Addresses:</h4>
+                    <ul>${Object.entries(data.top_ips)
+                      .map(([ip, count]) => `<li>${ip}: ${count}</li>`)
+                      .join("")}</ul>
+                    <h4>HTTP Status Codes:</h4>
+                    <ul>${Object.entries(data.status_codes)
+                      .map(([code, count]) => `<li>${code}: ${count}</li>`)
+                      .join("")}</ul>
+                </div>
+                <div class="section">
+                    <h3>Security Issues</h3>
+                    <p>Failed Logins: ${data.failed_logins}</p>
+                    <p>Potential SQL Injection Attempts: ${
+                      data.potential_sql_injection
+                    }</p>
+                    <h4>Potential Brute Force Attempts:</h4>
+                    <ul>${Object.entries(data.potential_brute_force)
+                      .map(([ip, count]) => `<li>${ip}: ${count} attempts</li>`)
+                      .join("")}</ul>
+                </div>
+            `;
+
+        // Display chart
+        const ctx = document.getElementById("chart").getContext("2d");
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: data.requests_over_time.map((item) => item.timestamp),
+            datasets: [
+              {
+                label: "Requests Over Time",
+                data: data.requests_over_time.map((item) => item.count),
+                borderColor: "rgb(75, 192, 192)",
+                tension: 0.1,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: {
+                type: "time",
+                time: {
+                  unit: "hour",
+                  displayFormats: {
+                    hour: "MMM D, HH:mm",
+                  },
+                },
+                title: {
+                  display: true,
+                  text: "Time",
+                },
+              },
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: "Number of Requests",
+                },
+              },
+            },
+          },
+        });
+      }
+    </script>
+  </body>
+</html>
+.
